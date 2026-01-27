@@ -1484,6 +1484,10 @@ static int flash_flexspi_nor_init(const struct device *dev)
 
 	if (!device_is_ready(&data->controller)) {
 		LOG_ERR("Controller device is not ready");
+		if (memc_flexspi_is_running_xip(&data->controller))
+		{
+			return 0;
+		}
 		return -ENODEV;
 	}
 
