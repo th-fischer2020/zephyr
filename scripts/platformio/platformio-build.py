@@ -488,7 +488,8 @@ def generate_strsignal_table():
             FRAMEWORK_DIR, "scripts", "build", "gen_strsignal_table.py"
         ),
         "-i",
-        os.path.join(FRAMEWORK_DIR, "include", "zephyr", "posix", "signal.h"),
+        os.path.join(
+            FRAMEWORK_DIR, "include", "zephyr", "posix", "posix_signal.h"),
         "-o",
         strsignal_table_header,
     )
@@ -870,7 +871,23 @@ def get_linkerscript_cmd(
     if extra_flags:
         cmd.extend(extra_flags)
 
-    cmd.extend(['-I"%s"' % inc for inc in app_includes["plain_includes"]])
+    cmd.extend(
+        [
+            '-I"%s"' % inc
+            for inc in app_includes["plain_includes"]
+            + [
+                os.path.join(
+                    FRAMEWORK_DIR,
+                    "include",
+                    "zephyr",
+                    "arch",
+                    "arm",
+                    "cortex_m",
+                    "scripts",
+                )
+            ]
+        ]
+    )
 
     return env.Command(
         os.path.join("$BUILD_DIR", "zephyr", script_name),
@@ -1182,20 +1199,6 @@ def generate_offset_header_file_cmd():
 
 
 def generate_relocation_files_cmd():
-    def _extract_relocations_arg(ninja_buildfile):
-        assert os.path.isfile(
-            ninja_buildfile
-        ), "Cannot extract relocation command! Ninja build file is missing!"
-
-        with open(ninja_buildfile, encoding="utf8") as fp:
-            args_pattern = r"COMMAND = [\S\s]*gen_relocate_app\.py\s+-d.*-i\s+[\"]?(?P<args>.*)[\"]?\s+-o[\S\s]*DESC"
-            regex_match = re.search(args_pattern, fp.read())
-            assert (
-                regex_match
-            ), "Cannot extract relocation command! Ninja build file is missing!"
-
-            return regex_match.group("args")
-
     # Note: the gen_relocate_app.py script traverses the build directory in order
     # to find corresponding object files (.obj) specified in its arguments list
     ninja_buildfile = os.path.join(BUILD_DIR, "build.ninja")
@@ -1208,7 +1211,7 @@ def generate_relocation_files_cmd():
         "-d",
         "$BUILD_DIR",
         "-i",
-        '"%s"' % _extract_relocations_arg(ninja_buildfile),
+        "$SOURCE",
         "-o",
         "${TARGETS[0]}",
         "-s",
@@ -1246,7 +1249,11 @@ def generate_relocation_files_cmd():
             ),
             os.path.join("$BUILD_DIR", "zephyr", "code_relocation.c"),
         ],
-        ninja_buildfile,
+        os.path.join(
+            "$BUILD_DIR",
+            "zephyr",
+            "relocation_dict.txt"
+        ),
         env.VerboseAction(" ".join(cmd), "Generating relocation files"),
     )
 
@@ -1912,12 +1919,6 @@ cmake_settings = load_cmake_settings()
 
 relocation_files = None
 if project_settings.get("CONFIG_CODE_DATA_RELOCATION", ""):
-    if not ZEPHYR_PRESERVE_OBJ_EXT:
-        print(
-            "Warning: Object file extension has been automatically switched "
-            "to `.obj` to properly generate relocation files!"
-        )
-        ZEPHYR_PRESERVE_OBJ_EXT = True
     relocation_files = generate_relocation_files_cmd()
 
 offset_header_file = generate_offset_header_file_cmd()
@@ -1928,22 +1929,15 @@ validate_driver()
 generate_version_header()
 generate_device_api_sections()
 
-# D:\Zephyr\.venv\env-west\Scripts\python.exe
-# D:/Zephyr/zephyr-v4.1.0/zephyr/scripts/build/gen_iter_sections.py
-# --alignment 4
-# --input D:/Zephyr/zephyr-v4.1.0/build/zephyr/misc/generated/struct_tags.json
-# --tag __subsystem
-# --ld-output D:/Zephyr/zephyr-v4.1.0/build/zephyr/include/generated/device-api-sections.ld
-# --cmake-output D:/Zephyr/zephyr-v4.1.0/build/zephyr/include/generated/device-api-sections.cmake"
-
 if project_settings.get("CONFIG_MINIMAL_LIBC", ""):
     generate_strerror_table(project_settings)
 
 if project_settings.get("CONFIG_BOOT_SIGNATURE_KEY_FILE", ""):
     generate_pubkey(get_boot_signature_key_file(project_settings))
 
-if project_settings.get("CONFIG_POSIX_SIGNALS", ""):
-    generate_strsignal_table()
+if not project_settings.get("CONFIG_TC_PROVIDES_POSIX_SIGNALS", ""):
+    if project_settings.get("CONFIG_POSIX_SIGNALS", ""):
+        generate_strsignal_table()
 
 
 #
