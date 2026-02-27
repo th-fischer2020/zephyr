@@ -2027,11 +2027,10 @@ for target, target_config in target_configs.items():
         "config": target_config,
     }
 
-    if any(
-        d.get("id", "").startswith("zephyr_generated_headers")
-        for d in target_config.get("dependencies", [])
-    ):
-        env.Depends(lib[0].sources, offset_header_file)
+    # prevent build of zephyr before offest_header is generated, as it's required for compilation of some of the libraries
+    # this is a workaround for the issue when some of the libraries are built before the offset header file is generated, which leads to build failure due to missing offsets.h file
+    # Note: ideally, the dependency on the offset header file should be added only to those libraries that require it
+    env.Depends(lib[0].sources, offset_header_file)
 
 # Offsets library compiled separately as it's used later for custom dependencies
 offsets_lib = build_library(env, target_configs["offsets"], PROJECT_SRC_DIR)
