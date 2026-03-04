@@ -442,7 +442,7 @@ static int mcux_ccm_get_subsys_rate(const struct device *dev,
 #endif
 #endif
 
-#ifdef CONFIG_COUNTER_MCUX_QTMR
+#if defined(CONFIG_COUNTER_MCUX_QTMR) || defined(CONFIG_PWM_MCUX_QTMR)
 	case IMX_CCM_QTMR_CLK:
 		*rate = CLOCK_GetIpgFreq();
 		break;
