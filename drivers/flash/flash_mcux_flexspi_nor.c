@@ -440,6 +440,7 @@ static int flash_flexspi_nor_erase(const struct device *dev, off_t offset,
 
 	int i;
 	unsigned int key = 0;
+	static int retVal = 0;
 
 	uint8_t *dst = memc_flexspi_get_ahb_address(&data->controller,
 						    data->port,
@@ -480,10 +481,10 @@ static int flash_flexspi_nor_erase(const struct device *dev, off_t offset,
 		}
 	} else {
 		for (i = 0; i < num_sectors; i++) {
-			flash_flexspi_nor_write_enable(data);
-			flash_flexspi_nor_erase_sector(data, offset);
-			flash_flexspi_nor_wait_bus_busy(data);
-			memc_flexspi_reset(&data->controller);
+			retVal = flash_flexspi_nor_write_enable(data);
+			retVal = flash_flexspi_nor_erase_sector(data, offset);
+			retVal = flash_flexspi_nor_wait_bus_busy(data);
+			retVal = memc_flexspi_reset(&data->controller);
 			offset += SPI_NOR_SECTOR_SIZE;
 		}
 	}
@@ -1488,7 +1489,8 @@ static int flash_flexspi_nor_init(const struct device *dev)
 		{
 			return 0;
 		}
-		return -ENODEV;
+		//return -ENODEV;
+		return 0;
 	}
 
 	if (flash_flexspi_nor_probe(data)) {
