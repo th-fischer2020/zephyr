@@ -560,6 +560,10 @@ __syscall void uart_irq_tx_enable(const struct device *dev);
  */
 __syscall void uart_irq_tx_disable(const struct device *dev);
 
+__syscall void uart_irq_tx_complete_enable(const struct device *dev);
+
+__syscall void uart_irq_tx_complete_disable(const struct device *dev);
+
 /**
  * @brief Check if UART TX buffer can accept bytes
  *

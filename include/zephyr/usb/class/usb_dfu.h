@@ -125,6 +125,6 @@ enum dfu_state {
 	dfuERROR,
 };
 
-__deprecated void wait_for_usb_dfu(k_timeout_t delay);
+__deprecated int wait_for_usb_dfu(k_timeout_t delay);
 
 #endif /* ZEPHYR_INCLUDE_USB_CLASS_USB_DFU_H_ */

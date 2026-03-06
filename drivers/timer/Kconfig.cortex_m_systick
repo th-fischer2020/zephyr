@@ -110,3 +110,10 @@ config CORTEX_M_SYSTICK_RESET_BY_LPM
 	  active in low-power mode, since SysTick cannot be used for timekeeping.
 
 	  Refer to CONFIG_CORTEX_M_SYSTICK_LPM_TIMER for more details.
+
+config CORTEX_M_SYSTICK_IRQ_PRIO
+	int "Sets the priority of Cortex-M systick timer interrupt"
+	range 1 255
+	help
+	  Sets the priority of Cortex-M systick timer interrupt
+

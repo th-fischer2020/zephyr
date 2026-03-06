@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020 Kim Bøndergaard <kim@fam-boendergaard.dk>
+ * Copyright (c) 2022 JUMO GmbH & Co. KG
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -67,10 +68,5 @@
 
 #define ST7735R_CMD_GAMCTRP1            0xE0
 #define ST7735R_CMD_GAMCTRN1            0xE1
-
-/* CMD_MADCTL bits */
-#define ST7735R_MADCTL_RBG                      0x00
-#define ST7735R_MADCTL_BGR                      0x08
-
 
 #endif  /* ST7735R_DISPLAY_DRIVER_H__ */

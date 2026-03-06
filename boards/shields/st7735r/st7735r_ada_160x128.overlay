@@ -1,9 +1,11 @@
 /*
  * Copyright (c) 2020, Kim Bøndergaard, <kim@fam-boendergaard.dk>
+ * Copyright (c) 2022 JUMO GmbH & Co. KG
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
+ 
+#include <zephyr/dt-bindings/display/st7735r.h>
 #include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
 #include <zephyr/dt-bindings/gpio/arduino-header-r3.h>
 
@@ -29,7 +31,7 @@
 			height = <128>;
 			x-offset = <0>;
 			y-offset = <0>;
-			madctl = <0x60>;
+			madctl = <(ST7735R_MADCTL_RBG | ST7735R_ORIENTATION_CODE_0)>;
 			colmod = <0x55>;
 			vmctr1 = <0x0e>;
 			pwctr1 = [a2 02 84];

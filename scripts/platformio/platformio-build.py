@@ -1633,6 +1633,7 @@ def install_python_deps():
         "PyYAML": "~=6.0.0",
         "pykwalify": "~=1.8.0",
         "packaging": "~=23.1.0",
+        "jsonschema": "",
         # MCUboot
         "cryptography": ">=2.6.0",
         "intelhex": "~=2.3.0",

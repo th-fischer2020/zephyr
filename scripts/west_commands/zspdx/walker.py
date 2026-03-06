@@ -240,9 +240,11 @@ class Walker:
         try:
             relativeBaseDir = west_topdir(self.cm.paths_source)
         except WestNotFound:
-            log.err("cannot find west_topdir for CMake Codemodel sources path "
-                    f"{self.cm.paths_source}; bailing")
-            return False
+            if "framework-zephyr" in __file__:
+                relativeBaseDir = __file__.split("/framework-zephyr")[0]
+            else:
+                log.err(f"cannot find west_topdir for CMake Codemodel sources path {self.cm.paths_source}; bailing")
+                return False
 
         # set up zephyr sources package
         cfgPackageZephyr = PackageConfig()
@@ -263,14 +265,19 @@ class Walker:
             # Find tag vX.Y.Z
             for tag in zephyr_tags:
                 version = re.fullmatch(r'^v(?P<version>\d+\.\d+\.\d+)$', tag)
-                purl = self._build_purl(zephyr_url, tag)
+                if version:
+                    purl = self._build_purl(zephyr_url, tag)
 
-                if purl:
-                    cfgPackageZephyr.externalReferences.append(purl)
+                    if purl:
+                        cfgPackageZephyr.externalReferences.append(purl)
 
-                # Extract version from tag once
-                if cfgPackageZephyr.version == "" and version:
-                    cfgPackageZephyr.version = version.group('version')
+                    # Extract version from tag once
+                    if cfgPackageZephyr.version == "" and version:
+                        cfgPackageZephyr.version = version.group('version')
+                else:
+                    version = re.fullmatch(r'^v(?P<version>\d+\.\d+\.\d+)-.*pluto-tag$', tag)
+                    if version:
+                        cfgPackageZephyr.version = version.group('version')
 
         if len(cfgPackageZephyr.version) > 0:
             cpe = f'cpe:2.3:o:zephyrproject:zephyr:{cfgPackageZephyr.version}:-:*:*:*:*:*:*'
@@ -455,10 +462,9 @@ class Walker:
         log.dbg(f"    - artifacts[0]: {cfgTarget.target.artifacts[0]}")
 
         # don't create build File if artifact path points to nonexistent file
-        if not os.path.exists(artifactPath):
-            log.dbg(f"  - target {cfgTarget.name} lists build artifact {artifactPath} "
-                    "but file not found after build; skipping")
-            return None
+        #if not os.path.exists(artifactPath):
+        #    log.dbg(f"  - target {cfgTarget.name} lists build artifact {artifactPath} but file not found after build; skipping")
+        #    return None
 
         # create build File
         bf = File(self.docBuild, pkg)

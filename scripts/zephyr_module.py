@@ -536,7 +536,8 @@ def _create_meta_project(project_path):
     def git_tags(path, revision):
         if not revision or len(revision) == 0:
             return None
-
+        # in pluto we always have a dirty repo because of the submodule checkout from platformio
+        revision = revision.replace("-dirty", "")
         popen = subprocess.Popen(['git', '-P', 'tag', '--points-at', revision],
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE,
@@ -603,10 +604,10 @@ def process_meta(zephyr_base, west_projs, modules, extra_modules=None,
     meta['zephyr'] = zephyr_project
     meta['workspace'] = {}
 
+    meta_projects = []
     if west_projs is not None:
         from west.manifest import MANIFEST_REV_BRANCH
         projects = west_projs['projects']
-        meta_projects = []
 
         manifest_path = projects[0].posixpath
 

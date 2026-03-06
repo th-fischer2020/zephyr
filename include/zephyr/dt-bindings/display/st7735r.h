@@ -1,0 +1,24 @@
+/*
+ * Copyright (c) 2022 JUMO GmbH & Co. KG
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+#ifndef ZEPHYR_INCLUDE_DT_BINDINGS_DISPLAY_ST7735R_H_
+#define ZEPHYR_INCLUDE_DT_BINDINGS_DISPLAY_ST7735R_H_
+
+/* CMD_MADCTL bits */
+#define ST7735R_MADCTL_RBG                  0x00
+#define ST7735R_MADCTL_BGR                  0x08
+
+#define ST7735R_MADCTL_ML                   0x10
+#define ST7735R_MADCTL_MV                   0x20
+#define ST7735R_MADCTL_MX                   0x40
+#define ST7735R_MADCTL_MY                   0x80
+#define ST7735R_MADCTL_ORIENTATION_MASK     0xE0
+
+#define ST7735R_ORIENTATION_CODE_0          (ST7735R_MADCTL_MV | ST7735R_MADCTL_MX)
+#define ST7735R_ORIENTATION_CODE_1          (ST7735R_MADCTL_MX | ST7735R_MADCTL_MY)
+#define ST7735R_ORIENTATION_CODE_2          (ST7735R_MADCTL_MV | ST7735R_MADCTL_MY)
+#define ST7735R_ORIENTATION_CODE_3          (0)
+
+#endif /* ZEPHYR_INCLUDE_DT_BINDINGS_DISPLAY_ST7735R_H_ */

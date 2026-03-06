@@ -97,6 +97,12 @@ __subsystem struct uart_driver_api {
 	/** Interrupt driven transfer disabling function */
 	void (*irq_tx_disable)(const struct device *dev);
 
+	/** Interrupt driven byte transferred enabling function*/
+	void (*irq_tx_complete_enable)(const struct device *dev);
+
+	/** Interrupt driven byte transferred disabling function*/
+	void (*irq_tx_complete_disable)(const struct device *dev);
+
 	/** Interrupt driven transfer ready function */
 	int (*irq_tx_ready)(const struct device *dev);
 
@@ -323,6 +329,34 @@ static inline void z_impl_uart_irq_tx_disable(const struct device *dev)
 
 	if (api->irq_tx_disable != NULL) {
 		api->irq_tx_disable(dev);
+	}
+#else
+	ARG_UNUSED(dev);
+#endif
+}
+
+static inline void z_impl_uart_irq_tx_complete_enable(const struct device *dev)
+{
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+	const struct uart_driver_api *api=
+		(const struct uart_driver_api *)dev->api;
+
+	if (api->irq_tx_complete_enable != NULL) {
+		api->irq_tx_complete_enable(dev);
+	}
+#else
+	ARG_UNUSED(dev);
+#endif
+}
+
+static inline void z_impl_uart_irq_tx_complete_disable(const struct device *dev)
+{
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+	const struct uart_driver_api *api=
+		(const struct uart_driver_api *)dev->api;
+
+	if (api->irq_tx_complete_disable != NULL) {
+		api->irq_tx_complete_disable(dev);
 	}
 #else
 	ARG_UNUSED(dev);

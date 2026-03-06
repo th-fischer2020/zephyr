@@ -6,6 +6,7 @@
  * Copyright (c) 2020 Endian Technologies AB
  * Copyright (c) 2020 Kim Bøndergaard <kim@fam-boendergaard.dk>
  * Copyright 2024 NXP
+ * Copyright (c) 2022 JUMO GmbH & Co. KG
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -19,15 +20,30 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/pm/device.h>
 #include <zephyr/sys/byteorder.h>
+#include <zephyr/sys/util.h>
 #include <zephyr/drivers/display.h>
+#include <zephyr/dt-bindings/display/st7735r.h>
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(display_st7735r, CONFIG_DISPLAY_LOG_LEVEL);
 
-#define ST7735R_RESET_TIME	1
-#define ST7735R_EXIT_SLEEP_TIME K_MSEC(120)
+#define ST7735R_RESET_TIME              1
+#define ST7735R_EXIT_SLEEP_TIME         K_MSEC(120)
 
 #define ST7735R_PIXEL_SIZE 2u
+
+
+static const uint8_t st7735r_orientation_codes[DISPLAY_ORIENTATION_ROTATED_270 + 1] = {
+	ST7735R_ORIENTATION_CODE_0,
+	ST7735R_ORIENTATION_CODE_1,
+	ST7735R_ORIENTATION_CODE_2,
+	ST7735R_ORIENTATION_CODE_3,
+};
+
+struct st7735r_orientation_code_map_entry {
+	enum display_orientation orientation;
+	uint8_t orientation_code;
+};
 
 struct st7735r_config {
 	const struct device *mipi_dev;
@@ -57,7 +73,70 @@ struct st7735r_config {
 struct st7735r_data {
 	uint16_t x_offset;
 	uint16_t y_offset;
+	enum display_orientation orientation;
+	struct st7735r_orientation_code_map_entry orientation_map[ARRAY_SIZE(st7735r_orientation_codes)];
 };
+
+static int st7735_get_normal_code_idx(uint8_t normal_code)
+{
+	int normal_code_idx = -1;
+
+	for (int i = 0; i < ARRAY_SIZE(st7735r_orientation_codes); i++) {
+		if (st7735r_orientation_codes[i] == normal_code) {
+			normal_code_idx = i;
+			break;
+		}
+	}
+
+	if (normal_code_idx < 0) {
+		LOG_WRN("DT value not suitable. Check madctl setting in device tree.");
+		normal_code_idx = 0;
+	}
+
+	return normal_code_idx;
+}
+
+static void st7735r_init_orientation_map(const struct device *dev)
+{
+	const struct st7735r_config *config = (const struct st7735r_config *) dev->config;
+	struct st7735r_data *data = (struct st7735r_data *) dev->data;
+
+	const uint8_t dt_normal_code = config->madctl & ST7735R_MADCTL_ORIENTATION_MASK;
+
+	int code_idx = st7735_get_normal_code_idx(dt_normal_code);
+
+	enum display_orientation display_orientation_value = DISPLAY_ORIENTATION_NORMAL;
+
+	for (int i = 0; i < ARRAY_SIZE(st7735r_orientation_codes); i++) {
+		data->orientation_map[i].orientation = display_orientation_value;
+		data->orientation_map[i].orientation_code = st7735r_orientation_codes[code_idx];
+
+		display_orientation_value++;
+		code_idx++;
+
+		if (code_idx >= ARRAY_SIZE(st7735r_orientation_codes)) {
+			code_idx = 0;
+		}
+	}
+}
+
+static uint8_t st7735r_get_orientation_code(const struct device *dev,
+					    enum display_orientation orientation)
+{
+	struct st7735r_data *data = (struct st7735r_data *) dev->data;
+	const struct st7735r_config *config = (const struct st7735r_config *) dev->config;
+
+	uint8_t orientation_code = config->madctl & ST7735R_MADCTL_ORIENTATION_MASK;
+
+	for (int i = 0; i < ARRAY_SIZE(st7735r_orientation_codes); i++) {
+		if (data->orientation_map[i].orientation == orientation) {
+			orientation_code = data->orientation_map[i].orientation_code;
+			break;
+		}
+	}
+
+	return orientation_code;
+}
 
 static void st7735r_set_lcd_margins(const struct device *dev,
 				    uint16_t x_offset, uint16_t y_offset)
@@ -80,7 +159,7 @@ static int st7735r_transmit_hold(const struct device *dev, uint8_t cmd,
 static int st7735r_transmit(const struct device *dev, uint8_t cmd,
 			    const uint8_t *tx_data, size_t tx_count)
 {
-	const struct st7735r_config *config = dev->config;
+	const struct st7735r_config *config = (const struct st7735r_config *)dev->config;
 	int ret;
 
 	ret = st7735r_transmit_hold(dev, cmd, tx_data, tx_count);
@@ -131,6 +210,15 @@ static int st7735r_blanking_off(const struct device *dev)
 	return st7735r_transmit(dev, ST7735R_CMD_DISP_ON, NULL, 0);
 }
 
+static int st7735r_read(const struct device *dev,
+			const uint16_t x,
+			const uint16_t y,
+			const struct display_buffer_descriptor *desc,
+			void *buf)
+{
+	return -ENOTSUP;
+}
+
 static int st7735r_set_mem_area(const struct device *dev,
 				const uint16_t x, const uint16_t y,
 				const uint16_t w, const uint16_t h)
@@ -166,6 +254,42 @@ static int st7735r_set_mem_area(const struct device *dev,
 
 	/* NB: CS still held - data transfer coming next */
 	return 0;
+}
+
+static void st7735r_get_capabilities(const struct device *dev,
+	struct display_capabilities *capabilities)
+{
+	const struct st7735r_config *config = (const struct st7735r_config *)dev->config;
+	struct st7735r_data *data = (struct st7735r_data *)dev->data;
+
+	memset(capabilities, 0, sizeof(struct display_capabilities));
+
+	/*
+	* Invert the pixel format if rgb_is_inverted is enabled.
+	* Report pixel format as the same format set in the MADCTL
+	* if disabling the rgb_is_inverted option.
+	* Or not so, reporting pixel format as RGB if MADCTL setting
+	* is BGR. And also vice versa.
+	* It is a workaround for supporting buggy modules that display RGB as BGR.
+	*/
+	if (!(config->madctl & ST7735R_MADCTL_BGR) != !config->rgb_is_inverted) {
+		capabilities->supported_pixel_formats = PIXEL_FORMAT_BGR_565;
+		capabilities->current_pixel_format = PIXEL_FORMAT_BGR_565;
+	} else {
+		capabilities->supported_pixel_formats = PIXEL_FORMAT_RGB_565;
+		capabilities->current_pixel_format = PIXEL_FORMAT_RGB_565;
+	}
+
+	if (data->orientation == DISPLAY_ORIENTATION_NORMAL ||
+		data->orientation == DISPLAY_ORIENTATION_ROTATED_180) {
+		capabilities->x_resolution = config->width;
+		capabilities->y_resolution = config->height;
+	} else {
+		capabilities->x_resolution = config->height;
+		capabilities->y_resolution = config->width;
+	}
+
+	capabilities->current_orientation = data->orientation;
 }
 
 static int st7735r_write(const struct device *dev,
@@ -210,12 +334,9 @@ static int st7735r_write(const struct device *dev,
 	/* Per MIPI API, pitch must always match width */
 	mipi_desc.pitch = desc->width;
 
-
-	if (!(config->madctl & ST7735R_MADCTL_BGR) != !config->rgb_is_inverted) {
-		fmt = PIXEL_FORMAT_BGR_565;
-	} else {
-		fmt = PIXEL_FORMAT_RGB_565;
-	}
+	struct display_capabilities capabilities = {0};
+	st7735r_get_capabilities(dev, &capabilities);
+	fmt = capabilities.current_pixel_format;
 
 	ret = st7735r_transmit_hold(dev, ST7735R_CMD_RAMWR,
 				    (void *) write_data_start,
@@ -244,38 +365,27 @@ out:
 	return ret;
 }
 
-static void st7735r_get_capabilities(const struct device *dev,
-				     struct display_capabilities *capabilities)
+static void *st7735r_get_framebuffer(const struct device *dev)
 {
-	const struct st7735r_config *config = dev->config;
+	return NULL;
+}
 
-	memset(capabilities, 0, sizeof(struct display_capabilities));
-	capabilities->x_resolution = config->width;
-	capabilities->y_resolution = config->height;
+static int st7735r_set_brightness(const struct device *dev,
+				  const uint8_t brightness)
+{
+	return -ENOTSUP;
+}
 
-	/*
-	 * Invert the pixel format if rgb_is_inverted is enabled.
-	 * Report pixel format as the same format set in the MADCTL
-	 * if disabling the rgb_is_inverted option.
-	 * Or not so, reporting pixel format as RGB if MADCTL setting
-	 * is BGR. And also vice versa.
-	 * It is a workaround for supporting buggy modules that display RGB as BGR.
-	 */
-	if (!(config->madctl & ST7735R_MADCTL_BGR) != !config->rgb_is_inverted) {
-		capabilities->supported_pixel_formats = PIXEL_FORMAT_BGR_565;
-		capabilities->current_pixel_format = PIXEL_FORMAT_BGR_565;
-	} else {
-		capabilities->supported_pixel_formats = PIXEL_FORMAT_RGB_565;
-		capabilities->current_pixel_format = PIXEL_FORMAT_RGB_565;
-	}
-
-	capabilities->current_orientation = DISPLAY_ORIENTATION_NORMAL;
+static int st7735r_set_contrast(const struct device *dev,
+				const uint8_t contrast)
+{
+	return -ENOTSUP;
 }
 
 static int st7735r_set_pixel_format(const struct device *dev,
 				    const enum display_pixel_format pixel_format)
 {
-	const struct st7735r_config *config = dev->config;
+	const struct st7735r_config *config = (const struct st7735r_config *)dev->config;
 
 	if ((pixel_format == PIXEL_FORMAT_RGB_565) &&
 	    (~config->madctl & ST7735R_MADCTL_BGR)) {
@@ -295,13 +405,22 @@ static int st7735r_set_pixel_format(const struct device *dev,
 static int st7735r_set_orientation(const struct device *dev,
 				   const enum display_orientation orientation)
 {
-	if (orientation == DISPLAY_ORIENTATION_NORMAL) {
-		return 0;
+	const struct st7735r_config *config = (const struct st7735r_config *)dev->config;
+	struct st7735r_data *data = (struct st7735r_data *)dev->data;
+	int ret = 0;
+	uint8_t madctl = config->madctl;
+
+	madctl &= ~(ST7735R_MADCTL_ORIENTATION_MASK);
+
+	madctl |= st7735r_get_orientation_code(dev, orientation);
+	data->orientation = orientation;
+
+	ret = st7735r_transmit(dev, ST7735R_CMD_MADCTL, &madctl, sizeof(madctl));
+	if (ret < 0) {
+		return ret;
 	}
 
-	LOG_ERR("Changing display orientation not implemented");
-
-	return -ENOTSUP;
+	return 0;
 }
 
 static int st7735r_lcd_init(const struct device *dev)
@@ -454,6 +573,8 @@ static int st7735r_init(const struct device *dev)
 		return ret;
 	}
 
+	st7735r_init_orientation_map(dev);
+
 	return 0;
 }
 
@@ -483,6 +604,10 @@ static DEVICE_API(display, st7735r_api) = {
 	.blanking_on = st7735r_blanking_on,
 	.blanking_off = st7735r_blanking_off,
 	.write = st7735r_write,
+	.read = st7735r_read,
+	.get_framebuffer = st7735r_get_framebuffer,
+	.set_brightness = st7735r_set_brightness,
+	.set_contrast = st7735r_set_contrast,
 	.get_capabilities = st7735r_get_capabilities,
 	.set_pixel_format = st7735r_set_pixel_format,
 	.set_orientation = st7735r_set_orientation,
@@ -523,6 +648,7 @@ static DEVICE_API(display, st7735r_api) = {
 	static struct st7735r_data st7735r_data_ ## inst = {			\
 		.x_offset = DT_INST_PROP(inst, x_offset),			\
 		.y_offset = DT_INST_PROP(inst, y_offset),			\
+		.orientation = DISPLAY_ORIENTATION_NORMAL,			\
 	};									\
 										\
 	PM_DEVICE_DT_INST_DEFINE(inst, st7735r_pm_action);			\

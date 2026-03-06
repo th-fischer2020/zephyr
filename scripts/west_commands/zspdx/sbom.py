@@ -110,10 +110,10 @@ def makeSPDX(cfg):
             return False
 
     # write app document
-    retval = writeSPDX(os.path.join(cfg.spdxDir, "app.spdx"), w.docApp, cfg.spdxVersion)
-    if not retval:
-        log.err("SPDX writer failed for app document; bailing")
-        return False
+    #retval = writeSPDX(os.path.join(cfg.spdxDir, "app.spdx"), w.docApp)
+    #if not retval:
+    #    log.err("SPDX writer failed for app document; bailing")
+    #    return False
 
     # write zephyr document
     retval = writeSPDX(os.path.join(cfg.spdxDir, "zephyr.spdx"), w.docZephyr, cfg.spdxVersion)

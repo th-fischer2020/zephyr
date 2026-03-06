@@ -424,7 +424,7 @@ static int mcux_ccm_get_subsys_rate(const struct device *dev,
 #endif
 #endif
 
-#ifdef CONFIG_COUNTER_MCUX_GPT
+#if defined(CONFIG_COUNTER_MCUX_GPT) || defined(CONFIG_INPUT_CAPTURE_MCUX_GPT)
 	case IMX_CCM_GPT_CLK:
 		*rate = CLOCK_GetFreq(kCLOCK_PerClk);
 		break;

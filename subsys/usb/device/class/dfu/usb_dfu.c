@@ -945,7 +945,7 @@ static bool is_dfu_started(void)
  *
  * @return  N/A
  */
-void wait_for_usb_dfu(k_timeout_t delay)
+int wait_for_usb_dfu(k_timeout_t delay)
 {
 	k_timepoint_t end = sys_timepoint_calc(delay);
 
@@ -960,14 +960,18 @@ void wait_for_usb_dfu(k_timeout_t delay)
 			/* Wait till DFU is complete */
 			if (k_poll(&dfu_event, 1, K_FOREVER) != 0) {
 				LOG_DBG("USB DFU Error");
+				return -EIO;
 			}
 
 			LOG_INF("USB DFU Completed");
-			break;
+
+			return 0;
 		}
 
 		k_msleep(INTERMITTENT_CHECK_DELAY);
 	}
+
+	return -ETIMEDOUT;
 }
 
 SYS_INIT(usb_dfu_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEVICE);

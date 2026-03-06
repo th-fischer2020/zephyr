@@ -45,6 +45,14 @@ extern unsigned int z_clock_hw_cycles_per_sec;
  */
 #define MIN_DELAY MAX(1024U, ((uint32_t)CYC_PER_TICK/16U))
 
+#define TICKLESS (IS_ENABLED(CONFIG_TICKLESS_KERNEL))
+
+#if defined(CONFIG_CORTEX_M_SYSTICK_IRQ_PRIO)
+#define CORTEX_M_SYSTICK_IRQ_PRIO		CONFIG_CORTEX_M_SYSTICK_IRQ_PRIO
+#else
+#define CORTEX_M_SYSTICK_IRQ_PRIO  	_IRQ_PRIO_OFFSET
+#endif
+
 static struct k_spinlock lock;
 
 static uint32_t last_load;
@@ -535,7 +543,7 @@ void sys_clock_disable(void)
 static int sys_clock_driver_init(void)
 {
 
-	NVIC_SetPriority(SysTick_IRQn, _IRQ_PRIO_OFFSET);
+	NVIC_SetPriority(SysTick_IRQn, CORTEX_M_SYSTICK_IRQ_PRIO);
 	last_load = CYC_PER_TICK;
 	overflow_cyc = 0U;
 	SysTick->LOAD = last_load - 1;

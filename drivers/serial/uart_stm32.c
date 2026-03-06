@@ -845,12 +845,15 @@ static int uart_stm32_err_check(const struct device *dev)
 	}
 
 #if !defined(CONFIG_SOC_SERIES_STM32F0X) || defined(USART_LIN_SUPPORT)
-	if (LL_USART_IsActiveFlag_LBD(usart)) {
-		err |= UART_BREAK;
-	}
+	if (LL_USART_IsEnabledLIN(usart))
+	{
+		if (LL_USART_IsActiveFlag_LBD(usart)) {
+			err |= UART_BREAK;
+		}
 
-	if (err & UART_BREAK) {
-		LL_USART_ClearFlag_LBD(usart);
+		if (err & UART_BREAK) {
+			LL_USART_ClearFlag_LBD(usart);
+		}
 	}
 #endif
 	/* Clearing error :
@@ -2170,6 +2173,8 @@ static DEVICE_API(uart, uart_stm32_driver_api) = {
 #endif
 	.irq_tx_enable = uart_stm32_irq_tx_enable,
 	.irq_tx_disable = uart_stm32_irq_tx_disable,
+	.irq_tx_complete_enable = NULL,
+	.irq_tx_complete_disable = NULL,
 	.irq_tx_ready = uart_stm32_irq_tx_ready,
 	.irq_tx_complete = uart_stm32_irq_tx_complete,
 	.irq_rx_enable = uart_stm32_irq_rx_enable,
