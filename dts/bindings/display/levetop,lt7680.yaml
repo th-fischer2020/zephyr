@@ -1,0 +1,141 @@
+# Copyright (c) 2025 JUMO GmbH & Co. KG
+# SPDX-License-Identifier: Apache-2.0
+
+description: Displaydriver for Levetop LT7680
+
+compatible: "levetop,lt7680"
+
+include: [spi-device.yaml, display-controller.yaml]
+
+properties:
+  reg:
+    required: true
+    description: Chip-select index on the SPI bus.
+
+  x-offset:
+    type: int
+    required: true
+    description: The column offset in pixels of the LCD to the controller memory
+
+  y-offset:
+    type: int
+    required: true
+    description: The row offset in pixels of the LCD to the controller memory
+
+  reset-gpios:
+    type: phandle-array
+    required: false
+    description: GPIO specifier for the reset pin of the display. The pin is active low.
+
+  reset-delay-ms:
+    type: int
+    default: 100
+    description: |
+      Time in milliseconds to hold the display in reset after asserting the reset pin.
+
+  width:
+    type: int
+    required: true
+    description: Horizontal display resolution in pixels
+
+  height:
+    type: int
+    required: true
+    description: Vertical display resolution in pixels.
+
+  crystal-frequency:
+    type: int
+    required: false
+    default: 10000000
+    description: |
+      Frequency of the crystal oscillator driving the LT768 PLL, in Hz.
+
+  vscan-direction:
+    type: int
+    default: 0
+    description: |
+      Vertical scan direction. By default, the display is scanned from top to bottom.
+      Use the macros not the actual enum value, here is the concordance list
+      (see dt-bindings/display/lt7680.h)
+        0 vertical scan top→bottom
+        8 vertical scan bottom→top
+    enum:
+      - 0
+      - 8
+
+  memory-write-direction:
+    type: int
+    default: 0
+    description: |
+      Memory write direction. By default, the display memory is written in left to right direction.
+      Use the macros not the actual enum value, here is the concordance list
+      (see dt-bindings/display/lt7680.h)
+        0 memory write left→right, top→bottom
+        2 memory write right→left, top→bottom
+        4 memory write top→down,   left→right
+        6 memory write down→top,   left→right
+    enum:
+      - 0
+      - 2
+      - 4
+      - 6
+
+  hsync-pulse-width:
+    type: int
+    required: false
+    default: 20
+    description: |
+      HSYNC pulse width in pixel-clock cycles.
+      The register value is (hsync-pulse-width / 8) - 1, so this must be
+      a non-zero multiple of 8 when provided.
+      If 0, the panel timing initialisation is skipped.
+
+  hsync-back-porch:
+    type: int
+    required: false
+    default: 140
+    description: Horizontal back porch in pixel-clock cycles.
+
+  hsync-front-porch:
+    type: int
+    required: false
+    default: 160
+    description: Horizontal front porch in pixel-clock cycles.
+
+  vsync-pulse-width:
+    type: int
+    required: false
+    default: 3
+    description: |
+      VSYNC pulse width in line periods.
+      If 0, the panel timing initialisation is skipped.
+
+  vsync-back-porch:
+    type: int
+    required: false
+    default: 20
+    description: Vertical back porch in line periods.
+
+  vsync-front-porch:
+    type: int
+    required: false
+    default: 12
+    description: Vertical front porch in line periods.
+
+  hsync-active-low:
+    type: boolean
+    description: Set if the HSYNC signal is active low.
+
+  vsync-active-low:
+    type: boolean
+    description: Set if the VSYNC signal is active low.
+
+  de-active-low:
+    type: boolean
+    description: Set if the DE (Data Enable) signal is active low.
+
+  pclk-falling-edge:
+    type: boolean
+    description: |
+      Set if pixel data is latched on the falling edge of the pixel clock.
+      When absent, rising edge is used.
